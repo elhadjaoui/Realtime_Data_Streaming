@@ -1,13 +1,11 @@
 import json
 import socket
 import time
-from pathlib import Path
-from typing import Generator, Any
-import pandas as pd
 from contextlib import contextmanager
+import pandas as pd
 
 class DataSender:
-    def __init__(self, host: str = '127.0.0.1', port: int = 9999, chunk_size: int = 2):
+    def __init__(self, host: str = 'spark-master', port: int = 9999, chunk_size: int = 2):
         self.host = host
         self.port = port
         self.chunk_size = chunk_size
@@ -27,36 +25,43 @@ class DataSender:
             if self.socket:
                 self.socket.close()
 
-    def read_json_chunks(self, file_path: Path) -> Generator[list, None, None]:
+    def read_json_chunks(self, file_path: str):
         """Generator to read JSON files in chunks"""
         records = []
         with open(file_path, 'r') as file:
-            file.seek(self.last_position)
-            for line in file:
+            file.seek(self.last_position)  # Start reading from the last position
+            
+            while True:
+                line = file.readline()  # Manually read each line
+                if not line:
+                    break
+                
                 print(f"Reading line: {line}")
                 try:
                     records.append(json.loads(line))
                     if len(records) == self.chunk_size:
+                        self.last_position = file.tell()  # Update last position
                         yield records
                         records = []
                 except json.JSONDecodeError as e:
                     print(f"Error parsing JSON line: {e}")
                     continue
-                
+
             if records:  # Yield remaining records
+                self.last_position = file.tell()  # Update last position after reading remaining records
                 yield records
 
-    def send_data(self, data: Any, conn: socket.socket) -> None:
+    def send_data(self, data, conn: socket.socket) -> None:
         """Send data over socket connection"""
         try:
             serialized = json.dumps(data, default=self._handle_date).encode('utf-8') + b'\n'
-            conn.sendall(serialized)  # Using sendall instead of send
+            conn.sendall(serialized)
         except (socket.error, TypeError) as e:
             print(f"Error sending data: {e}")
             raise
 
     @staticmethod
-    def _handle_date(obj: Any) -> str:
+    def _handle_date(obj) -> str:
         """Handle date serialization"""
         if isinstance(obj, pd.Timestamp):
             return obj.strftime('%Y-%m-%d %H:%M:%S')
@@ -64,14 +69,17 @@ class DataSender:
 
     def process_file(self, file_path: str) -> None:
         """Main processing function"""
-        file_path = Path(file_path)
         print(f"Processing file: {file_path}")
-        if not file_path.exists():
+        
+        try:
+            with open(file_path, 'r'):
+                pass
+        except FileNotFoundError:
             raise FileNotFoundError(f"File not found: {file_path}")
 
         print(f"Listening for connections on {self.host}:{self.port}")
         
-        with self.create_server_socket(): # Using context manager
+        with self.create_server_socket():
             while True:
                 try:
                     conn, addr = self.socket.accept()
@@ -84,8 +92,7 @@ class DataSender:
                             
                             for record in chunk_df.to_dict(orient='records'):
                                 self.send_data(record, conn)
-                                time.sleep(5)  # Consider making this configurable
-                                self.last_position = file_path.tell()
+                                # time.sleep(1)  # Consider making this configurable
                                 
                 except (BrokenPipeError, ConnectionResetError):
                     print("Client disconnected.")
@@ -95,5 +102,5 @@ class DataSender:
                     print("Connection closed")
 
 if __name__ == "__main__":
-    sender = DataSender()
-    sender.process_file("src/datasets/data.json")
+    sender = DataSender(host='localhost', port=9999, chunk_size=2)
+    sender.process_file("src/datasets/yelp_academic_dataset_review.json")
