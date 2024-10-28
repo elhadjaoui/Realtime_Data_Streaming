@@ -32,7 +32,7 @@ class DataSender:
             file.seek(self.last_position)  # Start reading from the last position
             
             while True:
-                line = file.readline()  # Manually read each line
+                line = file.readline()  #read each line
                 if not line:
                     break
                 
@@ -92,7 +92,7 @@ class DataSender:
                             
                             for record in chunk_df.to_dict(orient='records'):
                                 self.send_data(record, conn)
-                                # time.sleep(1)  # Consider making this configurable
+                                time.sleep(2)  # Consider making this configurable
                                 
                 except (BrokenPipeError, ConnectionResetError):
                     print("Client disconnected.")
