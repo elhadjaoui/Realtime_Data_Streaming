@@ -1,5 +1,5 @@
 from time import sleep
-import openai
+from openai import OpenAI
 import sys
 import os
 from pyspark.sql import SparkSession
@@ -10,9 +10,9 @@ from config.config import config
 
 def sentiment_analysis(comment) -> str:
     if comment:
-        openai.api_key = config['openai']['api_key']
-        completion = openai.ChatCompletion.create(
-            model='gpt-3.5-turbo',
+        client = OpenAI(api_key= config['openai']['api_key'])
+        completion = client.chat.completions.create(
+            model='gpt-4o',
             messages = [
                 {
                     "role": "system",
@@ -26,7 +26,7 @@ def sentiment_analysis(comment) -> str:
                 }
             ]
         )
-        return completion.choices[0].message['content']
+        return completion.choices[0].message.content
     return "Empty"
 
 def start_streaming(spark):
@@ -34,7 +34,7 @@ def start_streaming(spark):
     while True:
         try:
             stream_df = (spark.readStream.format("socket")
-                         .option("host", "localhost")
+                         .option("host", "spark-master")
                          .option("port", 9999)
                          .load()
                          )
@@ -50,9 +50,9 @@ def start_streaming(spark):
 
             stream_df = stream_df.select(from_json(col('value'), schema).alias("data")).select(("data.*"))
 
-            # sentiment_analysis_udf = udf(sentiment_analysis, StringType())
+            sentiment_analysis_udf = udf(sentiment_analysis, StringType())
 
-            # stream_df = stream_df.withColumn('feedback', when(col('text').isNotNull(), sentiment_analysis_udf(col('text'))) .otherwise(None))
+            stream_df = stream_df.withColumn('feedback', when(col('text').isNotNull(), sentiment_analysis_udf(col('text'))) .otherwise(None))
 
             kafka_df = stream_df.selectExpr("CAST(review_id AS STRING) AS key", "to_json(struct(*)) AS value")
 

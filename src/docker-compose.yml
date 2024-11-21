@@ -14,7 +14,7 @@ services:
       - ./config:/opt/bitnami/spark/config
       - ./jobs:/opt/bitnami/spark/jobs
       - ./datasets:/opt/bitnami/spark/datasets
-      # - ./requirements.txt:/requirements.txt
+      - ./requirements.txt:/requirements.txt
     networks:
       - mel-hadj
 

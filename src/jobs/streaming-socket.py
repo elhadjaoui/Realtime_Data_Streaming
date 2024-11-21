@@ -92,7 +92,7 @@ class DataSender:
                             
                             for record in chunk_df.to_dict(orient='records'):
                                 self.send_data(record, conn)
-                                time.sleep(2)  # Consider making this configurable
+                                time.sleep(2) 
                                 
                 except (BrokenPipeError, ConnectionResetError):
                     print("Client disconnected.")
@@ -102,5 +102,5 @@ class DataSender:
                     print("Connection closed")
 
 if __name__ == "__main__":
-    sender = DataSender(host='localhost', port=9999, chunk_size=2)
-    sender.process_file("src/datasets/yelp_academic_dataset_review.json")
+    sender = DataSender(host='spark-master', port=9999, chunk_size=2)
+    sender.process_file("datasets/yelp_academic_dataset_review.json") ## ad src/datasets/... locally 
