@@ -1,0 +1,12 @@
+FROM bitnami/spark:latest
+
+COPY requirements.txt .
+
+USER root
+RUN apt-get update && \
+    apt-get install -y python3-pip && \
+    apt-get clean && \
+    apt-get install -y vim && \
+    pip install --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt
+
